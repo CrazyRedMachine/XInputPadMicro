@@ -68,17 +68,12 @@ int main(void) {
 	// Pins polling and gamepad status updates
 	for (;;) {
 		xbox_reset_watchdog();
-		
-		//in state 1, PB1 PB3 PF0 PF1 are for DPAD
-		pad_up = pad_down = pad_left = pad_right = 0;
-		
-		if (state==1){ //left PB1  right PB3  up PF0  down PF1
-		pad_left = !bit_check(PINB, 1);
-		pad_right = !bit_check(PINB, 3);
-		pad_up = !bit_check(PINF, 0);
-		pad_down = !bit_check(PINF, 1);
-		}
 
+		stick_left = !bit_check(PINB, 1);
+		stick_right = !bit_check(PINB, 3);
+		stick_up = !bit_check(PINF, 0);
+		stick_down = !bit_check(PINF, 1);
+		
 		pad_y = !bit_check(PIND, 2);
 		pad_b = !bit_check(PIND, 1);
 		pad_x = !bit_check(PIND, 0);
@@ -95,41 +90,30 @@ int main(void) {
 		//old dpad pins (PC7 (up), PB2(down), PB0(left), PD3(right)) are now free, so PC7 is now home button
 		pad_home = !bit_check(PINC, 7);
 		
+		pad_up = pad_down = pad_left = pad_right = 0;
 		pad_left_analog_x = pad_left_analog_y = pad_right_analog_x = pad_right_analog_y = 0x7F;
 
 		
-		if (state!=1){ //in state1 there is no analog...
-		
-		//in state 0, PB1 PB3 PF0 PF1 are used for Left analog, state2->RS
-			if(!bit_check(PINB, 1)) {
-				if (state!=2){
-				pad_left_analog_x = 0x00;}
-				else{						//left
-				pad_right_analog_x = 0x00;
-				}
-			} else if(!bit_check(PINB, 3)) {
-				if (state!=2){
-				pad_left_analog_x = 0xFF;}
-				else{						//right
-				pad_right_analog_x = 0xFF;
-				}
-			}
-
-			if(!bit_check(PINF, 0)) {
-				if (state!=2){
-				pad_left_analog_y = 0x00;}
-				else{						//up
-				pad_right_analog_y = 0x00;
-				}
-			} else if(!bit_check(PINF, 1)) {
-				if (state!=2){
-				pad_left_analog_y = 0xFF;}
-				else{						//down
-				pad_right_analog_y = 0xFF;
-				}
-			}
-		
+		if (state==0){ // left analog
+			if (stick_left) pad_left_analog_x = 0x00;
+			if (stick_right) pad_left_analog_x = 0xFF;
+			if (stick_up) pad_left_analog_y = 0x00;
+			if (stick_down) pad_left_analog_y = 0xFF;
 		}
+		else if (state==1){ //dpad
+			
+			pad_left = stick_left;
+			pad_right = stick_right;
+			pad_up = stick_up;
+			pad_down = stick_down;
+			
+		} else if (state == 2) { //right analog
+			if (stick_left) pad_right_analog_x = 0x00;
+			if (stick_right) pad_right_analog_x = 0xFF;
+			if (stick_up) pad_right_analog_y = 0x00;
+			if (stick_down) pad_right_analog_y = 0xFF;			
+		}		
+		
 		
 		pad_up    ? bit_set(gamepad_state.digital_buttons_1, XBOX_DPAD_UP)    : bit_clear(gamepad_state.digital_buttons_1, XBOX_DPAD_UP);
 		pad_down  ? bit_set(gamepad_state.digital_buttons_1, XBOX_DPAD_DOWN)  : bit_clear(gamepad_state.digital_buttons_1, XBOX_DPAD_DOWN);
@@ -162,18 +146,19 @@ int main(void) {
 			bit_clear(gamepad_state.digital_buttons_1, XBOX_RIGHT_STICK);
 		}
 		
-		//check for state changes (home+select+a + first row...)
-		if(pad_home && pad_select && pad_a && pad_x) {
+		//check for state changes (home+left / up / right...)
+		if(pad_home && stick_left) {
 			state = 0;
 		}
-		if(pad_home && pad_select && pad_a && pad_y) {
+		if(pad_home && stick_up) {
 			state = 1;
 		}
-		if(pad_home && pad_select && pad_a && pad_black) {
+		if(pad_home && stick_right) {
 			state = 2;
 		}
 		
 		
+
 		gamepad_state.l_x = pad_left_analog_x * 257 + -32768;
 		gamepad_state.l_y = pad_left_analog_y * -257 + 32767;
 		gamepad_state.r_x = pad_right_analog_x * 257 + -32768;
